@@ -3,8 +3,9 @@ package Catalyst::Plugin::Captcha;
 use strict;
 use warnings;
 use GD::SecurityImage;
+use HTTP::Date;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 sub setup {
     my $c = shift;
@@ -13,22 +14,30 @@ sub setup {
     $c->config->{captcha}->{new} ||= {};
     $c->config->{captcha}->{create} ||= [];
     $c->config->{captcha}->{particle} ||= [];
+    $c->config->{captcha}->{out} ||= {};
 
     return $c->NEXT::setup(@_);
 }
 
 sub create_captcha {
     my $c = shift;
+    my $conf = $c->config->{captcha};
 
-    my $image = GD::SecurityImage->new(%{$c->config->{captcha}->{new}});
+    my $image = GD::SecurityImage->new(%{$conf->{new}});
     $image->random();
-    $image->create(@{$c->config->{captcha}->{create}});
-    $image->particle(@{$c->config->{captcha}->{particle}});
+    $image->create(@{$conf->{create}});
+    $image->particle(@{$conf->{particle}});
 
-    my ( $image_data, $mime_type, $random_string ) = $image->out;
+    my ( $image_data, $mime_type, $random_string ) = $image->out(%{$conf->{out}});
 
     $c->session->{ $c->config->{captcha}->{session_name} } = $random_string;
-    $c->res->content_type($mime_type);
+
+    $c->res->headers->expires(time());
+    $c->res->headers->header('Last-Modified' => HTTP::Date::time2str);
+    $c->res->headers->header('Pragma' => 'no-cache');
+    $c->res->headers->header('Cache-Control' => 'no-cache');
+
+    $c->res->content_type("image/$mime_type");
     $c->res->output($image_data);
 }
 
@@ -56,7 +65,7 @@ Catalyst::Plugin::Captcha - create and validate Captcha for Catalyst
 
   use Catalyst qw/Captcha/;
 
-  MyApp->config->{captcha}->{
+  MyApp->config->{captcha} = {
     session_name => 'captcha_string',
     new => {
       width => 80,
@@ -65,7 +74,8 @@ Catalyst::Plugin::Captcha - create and validate Captcha for Catalyst
       gd_font => 'giant',
     },
     create => [qw/normal rect/],
-    particle => [100]
+    particle => [100],
+    out => {force => 'jpeg'}
   };
 
   sub captcha : Local {

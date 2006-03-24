@@ -7,7 +7,8 @@ WriteMakefile(
     PREREQ_PM         => {
         'GD::SecurityImage' => 0,
         'Catalyst' => 5.30,
-        'Catalyst::Plugin::Session' => 0
+        'Catalyst::Plugin::Session' => 0,
+        'HTTP::Date' => 0
     },
     ($] >= 5.005 ?
       (ABSTRACT_FROM  => 'lib/Catalyst/Plugin/Captcha.pm',
