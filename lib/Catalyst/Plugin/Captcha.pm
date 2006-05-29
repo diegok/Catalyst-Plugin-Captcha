@@ -5,16 +5,16 @@ use warnings;
 use GD::SecurityImage;
 use HTTP::Date;
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 sub setup {
     my $c = shift;
 
     $c->config->{captcha}->{session_name} = 'captcha_string';
-    $c->config->{captcha}->{new} ||= {};
-    $c->config->{captcha}->{create} ||= [];
+    $c->config->{captcha}->{new}      ||= {};
+    $c->config->{captcha}->{create}   ||= [];
     $c->config->{captcha}->{particle} ||= [];
-    $c->config->{captcha}->{out} ||= {};
+    $c->config->{captcha}->{out}      ||= {};
 
     return $c->NEXT::setup(@_);
 }
@@ -23,35 +23,42 @@ sub create_captcha {
     my $c = shift;
     my $conf = $c->config->{captcha};
 
-    my $image = GD::SecurityImage->new(%{$conf->{new}});
+    my $image = GD::SecurityImage->new( %{ $conf->{new} } );
     $image->random();
-    $image->create(@{$conf->{create}});
-    $image->particle(@{$conf->{particle}});
+    $image->create( @{ $conf->{create} } );
+    $image->particle( @{ $conf->{particle} } );
 
-    my ( $image_data, $mime_type, $random_string ) = $image->out(%{$conf->{out}});
+    my ( $image_data, $mime_type, $random_string ) =
+      $image->out( %{ $conf->{out} } );
 
     $c->session->{ $c->config->{captcha}->{session_name} } = $random_string;
 
-    $c->res->headers->expires(time());
-    $c->res->headers->header('Last-Modified' => HTTP::Date::time2str);
-    $c->res->headers->header('Pragma' => 'no-cache');
-    $c->res->headers->header('Cache-Control' => 'no-cache');
+    $c->res->headers->expires( time() );
+    $c->res->headers->header( 'Last-Modified' => HTTP::Date::time2str );
+    $c->res->headers->header( 'Pragma'        => 'no-cache' );
+    $c->res->headers->header( 'Cache-Control' => 'no-cache' );
 
     $c->res->content_type("image/$mime_type");
     $c->res->output($image_data);
 }
 
 sub validate_captcha {
-    my ($c, $verify) = @_;
+    my ( $c, $verify ) = @_;
     my $string = $c->captcha_string;
-    return ($verify && $string && $verify eq $string);
+    return ( $verify && $string && $verify eq $string );
 }
-
 
 sub captcha_string {
     my $c = shift;
-    return  $c->session->{ $c->config->{captcha}->{session_name} };
+    return $c->session->{ $c->config->{captcha}->{session_name} };
 }
+
+sub clear_captcha_string {
+    my $c = shift;
+    delete $c->session->{ $c->config->{captcha}->{session_name} };
+    return 1;
+}
+
 
 1;
 __END__
@@ -121,6 +128,30 @@ validate key
 =head2 captcha_string
 
 Return a string for validation which is stroed in session.
+
+=head2 clear_captcha_string
+
+Clear a string which is stroed in session.
+
+=head1 CONFIGURATION
+
+=over 4
+
+=item session_name
+
+The keyword for storing captcha string
+
+=item new
+
+=item create
+
+=item particle
+
+=item out
+
+These parameters are passed to each GD::Security's method. Please see L<GD::SecurityImage> for details.
+
+=back
 
 =head1 SEE ALSO
 
