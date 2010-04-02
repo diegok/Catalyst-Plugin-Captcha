@@ -5,25 +5,31 @@ use warnings;
 use GD::SecurityImage;
 use HTTP::Date;
 
-our $VERSION = '0.03';
+our $VERSION = '0.04';
+
+use MRO::Compat;
 
 sub setup {
-    my $c = shift;
+    my $c      = shift;
+    my $config = $c->config->{ 'Plugin::Captcha' }
+              || delete $c->config->{captcha}; # Deprecated
 
-    $c->config->{captcha}->{session_name} = 'captcha_string';
-    $c->config->{captcha}->{new}      ||= {};
-    $c->config->{captcha}->{create}   ||= [];
-    $c->config->{captcha}->{particle} ||= [];
-    $c->config->{captcha}->{out}      ||= {};
+    $config->{session_name}        ||= 'captcha_string';
+    $config->{captcha}->{new}      ||= {};
+    $config->{captcha}->{create}   ||= [];
+    $config->{captcha}->{particle} ||= [];
+    $config->{captcha}->{out}      ||= {};
 
-    return $c->NEXT::setup(@_);
+    $c->config( 'Plugin::Captcha' => $config );
+
+    return $c->next::method( @_ );
 }
 
 sub create_captcha {
-    my $c = shift;
-    my $conf = $c->config->{captcha};
-
+    my $c     = shift;
+    my $conf  = $c->config->{ 'Plugin::Captcha' };
     my $image = GD::SecurityImage->new( %{ $conf->{new} } );
+
     $image->random();
     $image->create( @{ $conf->{create} } );
     $image->particle( @{ $conf->{particle} } );
@@ -31,7 +37,7 @@ sub create_captcha {
     my ( $image_data, $mime_type, $random_string ) =
       $image->out( %{ $conf->{out} } );
 
-    $c->session->{ $c->config->{captcha}->{session_name} } = $random_string;
+    $c->session->{ $conf->{session_name} } = $random_string;
 
     $c->res->headers->expires( time() );
     $c->res->headers->header( 'Last-Modified' => HTTP::Date::time2str );
@@ -49,16 +55,19 @@ sub validate_captcha {
 }
 
 sub captcha_string {
-    my $c = shift;
-    return $c->session->{ $c->config->{captcha}->{session_name} };
+    my $c    = shift;
+    my $conf = $c->config->{ 'Plugin::Captcha' };
+
+    return $c->session->{ $conf->{session_name} };
 }
 
 sub clear_captcha_string {
-    my $c = shift;
-    delete $c->session->{ $c->config->{captcha}->{session_name} };
+    my $c    = shift;
+    my $conf = $c->config->{ 'Plugin::Captcha' };
+
+    delete $c->session->{ $conf->{session_name} };
     return 1;
 }
-
 
 1;
 __END__
@@ -72,7 +81,7 @@ Catalyst::Plugin::Captcha - create and validate Captcha for Catalyst
 
   use Catalyst qw/Captcha/;
 
-  MyApp->config->{captcha} = {
+  MyApp->config->{ 'Plugin::Captcha' } = {
     session_name => 'captcha_string',
     new => {
       width => 80,
